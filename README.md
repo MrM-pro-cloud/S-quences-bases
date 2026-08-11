@@ -1,4 +1,3 @@
-# S-quences-quizz
 # Séquences EM — Générateur de séquences d'éducation musicale
 
 Application web statique (sans serveur, sans dépendance) pour générer des
