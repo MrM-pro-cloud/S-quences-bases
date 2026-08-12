@@ -10,7 +10,7 @@ const state = {
   classe: "",
   problematique: "",
   vocab: [],       // [{ mot, definition, seance }]
-  oeuvres: [],     // [{ titre, auteur, note }]
+  oeuvres: [],     // [{ titre, auteur, note, lienAnalyse }]
   ressources: [],  // [{ label, url, seance }]
   illustrationUrl: "",
   seances: [],
@@ -144,7 +144,7 @@ function onGenerate(e) {
   state.problematique = problematiqueChoisie;
 
   state.vocab = initVocabFromNotion(notion, nbSeances);
-  state.oeuvres = notion.oeuvres_suggerees.map((o) => ({ titre: o.titre, auteur: o.auteur, note: o.note || "" }));
+  state.oeuvres = notion.oeuvres_suggerees.map((o) => ({ titre: o.titre, auteur: o.auteur, note: o.note || "", lienAnalyse: o.lien_analyse || "" }));
   state.ressources = [];
   state.illustrationUrl = el("illustration-url").value.trim();
 
@@ -237,18 +237,29 @@ function renderVocabEditor() {
 // --- Édition des œuvres / supports -----------------------------------------
 
 function addOeuvreRow() {
-  state.oeuvres.push({ titre: "", auteur: "", note: "" });
+  state.oeuvres.push({ titre: "", auteur: "", note: "", lienAnalyse: "" });
   renderOeuvresEditor();
 }
 
 function onOeuvresEditorClick(e) {
-  const btn = e.target.closest("[data-action='remove-oeuvre']");
-  if (!btn) return;
-  const idx = parseInt(btn.dataset.index, 10);
-  state.oeuvres.splice(idx, 1);
-  renderOeuvresEditor();
-  rebuildSeances();
-  renderSeancesTable();
+  const removeBtn = e.target.closest("[data-action='remove-oeuvre']");
+  if (removeBtn) {
+    const idx = parseInt(removeBtn.dataset.index, 10);
+    state.oeuvres.splice(idx, 1);
+    renderOeuvresEditor();
+    rebuildSeances();
+    renderSeancesTable();
+    return;
+  }
+  const searchBtn = e.target.closest("[data-action='search-analyse']");
+  if (searchBtn) {
+    const idx = parseInt(searchBtn.dataset.index, 10);
+    const o = state.oeuvres[idx];
+    if (!o) return;
+    const q = [o.titre, o.auteur, "analyse musicale"].filter((x) => x && x.trim() !== "").join(" ");
+    if (q.trim() === "analyse musicale") return; // rien de renseigné : inutile de lancer la recherche
+    window.open("https://search.brave.com/search?q=" + encodeURIComponent(q), "_blank", "noopener");
+  }
 }
 
 function onOeuvresEditorInput(e) {
@@ -257,7 +268,7 @@ function onOeuvresEditorInput(e) {
   const idx = parseInt(row.dataset.index, 10);
   if (Number.isNaN(idx) || !state.oeuvres[idx]) return;
   const field = e.target.dataset.field;
-  if (["titre", "auteur", "note"].includes(field)) {
+  if (["titre", "auteur", "note", "lienAnalyse"].includes(field)) {
     state.oeuvres[idx][field] = e.target.value;
   }
   rebuildSeances();
@@ -267,13 +278,15 @@ function onOeuvresEditorInput(e) {
 function renderOeuvresEditor() {
   el("oeuvres-editor").innerHTML = `
     <table class="editor-table">
-      <thead><tr><th>Titre</th><th>Auteur / interprète</th><th>Note</th><th></th></tr></thead>
+      <thead><tr><th>Titre</th><th>Auteur / interprète</th><th>Note</th><th>Lien d'analyse</th><th></th><th></th></tr></thead>
       <tbody>
         ${state.oeuvres.map((o, i) => `
           <tr data-index="${i}">
             <td><input type="text" data-field="titre" value="${escapeAttr(o.titre)}" placeholder="titre"></td>
             <td><input type="text" data-field="auteur" value="${escapeAttr(o.auteur)}" placeholder="auteur"></td>
             <td><input type="text" data-field="note" value="${escapeAttr(o.note)}" placeholder="note (facultatif)"></td>
+            <td><input type="text" data-field="lienAnalyse" value="${escapeAttr(o.lienAnalyse)}" placeholder="https://... (facultatif)"></td>
+            <td><button type="button" class="ghost small" data-action="search-analyse" data-index="${i}" title="Chercher une analyse existante dans un nouvel onglet">🔍 Chercher</button></td>
             <td><button type="button" class="ghost small" data-action="remove-oeuvre" data-index="${i}">Retirer</button></td>
           </tr>
         `).join("")}
@@ -565,7 +578,7 @@ function renderFicheProf() {
   `).join("");
 
   const oeuvresList = s.oeuvres.filter((o) => o.titre.trim() !== "").map((o) =>
-    `<li>${o.titre}${o.auteur ? " — " + o.auteur : ""}${o.note ? ` <em>(${o.note})</em>` : ""}</li>`
+    `<li>${o.titre}${o.auteur ? " — " + o.auteur : ""}${o.note ? ` <em>(${o.note})</em>` : ""}${o.lienAnalyse ? ` — <a href="${escapeAttr(o.lienAnalyse)}" target="_blank" rel="noopener">analyse</a>` : ""}</li>`
   ).join("");
 
   const toutesRessources = s.seances.flatMap((se) => se.ressourcesSeance.map((r) => ({ ...r, seanceNum: se.numero })));

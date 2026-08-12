@@ -10,6 +10,11 @@
  * Les champs "oeuvres_suggerees" et "problematiques_exemples" sont des
  * PROPOSITIONS D'EXEMPLE : à vérifier, corriger et compléter selon votre
  * progression réelle et vos choix d'œuvres avant tout usage en classe.
+ * Chaque entrée d'"oeuvres_suggerees" accepte un champ optionnel
+ * "lien_analyse" (URL vers une analyse existante trouvée en ligne) : il est
+ * repris automatiquement dans l'éditeur de la séquence et sur la fiche
+ * professeur. Ce lien n'est jamais généré automatiquement — vous le
+ * renseignez vous-même après validation de la source.
  *
  * "ordre" et "periode" proposent un enchaînement annuel indicatif (8
  * séquences réparties sur 5 périodes). Les périodes sont génériques
