@@ -45,6 +45,7 @@ function initApp() {
   el("btn-fiche-eleve").addEventListener("click", () => switchFiche("eleve"));
   el("btn-fiche-prof").addEventListener("click", () => switchFiche("prof"));
   el("btn-fiche-trace").addEventListener("click", () => switchFiche("trace"));
+  el("btn-fiche-cours").addEventListener("click", () => switchFiche("cours"));
   el("btn-print").addEventListener("click", () => window.print());
 
   el("btn-add-vocab").addEventListener("click", addVocabRow);
@@ -219,8 +220,8 @@ function renderVocabEditor() {
       <tbody>
         ${state.vocab.map((v, i) => `
           <tr data-index="${i}">
-            <td><input type="text" data-field="mot" value="${escapeAttr(v.mot)}" placeholder="mot"></td>
-            <td><input type="text" data-field="definition" value="${escapeAttr(v.definition)}" placeholder="définition (facultatif)"></td>
+            <td><input type="text" data-field="mot" value="${escapeAttr(v.mot)}" placeholder="ex. timbre"></td>
+            <td><input type="text" data-field="definition" value="${escapeAttr(v.definition)}" placeholder="ex. couleur sonore propre à une voix ou un instrument"></td>
             <td>
               <select data-field="seance">
                 ${options.map((n) => `<option value="${n}" ${v.seance === n ? "selected" : ""}>Séance ${n}</option>`).join("")}
@@ -282,9 +283,9 @@ function renderOeuvresEditor() {
       <tbody>
         ${state.oeuvres.map((o, i) => `
           <tr data-index="${i}">
-            <td><input type="text" data-field="titre" value="${escapeAttr(o.titre)}" placeholder="titre"></td>
-            <td><input type="text" data-field="auteur" value="${escapeAttr(o.auteur)}" placeholder="auteur"></td>
-            <td><input type="text" data-field="note" value="${escapeAttr(o.note)}" placeholder="note (facultatif)"></td>
+            <td><input type="text" data-field="titre" value="${escapeAttr(o.titre)}" placeholder="ex. Boléro"></td>
+            <td><input type="text" data-field="auteur" value="${escapeAttr(o.auteur)}" placeholder="ex. Maurice Ravel"></td>
+            <td><input type="text" data-field="note" value="${escapeAttr(o.note)}" placeholder="ex. ostinato rythmique"></td>
             <td><input type="text" data-field="lienAnalyse" value="${escapeAttr(o.lienAnalyse)}" placeholder="https://... (facultatif)"></td>
             <td><button type="button" class="ghost small" data-action="search-analyse" data-index="${i}" title="Chercher une analyse existante dans un nouvel onglet">🔍 Chercher</button></td>
             <td><button type="button" class="ghost small" data-action="remove-oeuvre" data-index="${i}">Retirer</button></td>
@@ -479,6 +480,7 @@ function renderFiches() {
   renderFicheEleve();
   renderFicheProf();
   renderFicheTrace();
+  renderFicheCours();
   switchFiche("eleve");
 }
 
@@ -684,10 +686,69 @@ function renderFicheTrace() {
   `;
 }
 
+function renderFicheCours() {
+  const s = state;
+  const g = GABARITS[s.niveau];
+
+  const oeuvresRows = s.oeuvres.filter((o) => o.titre.trim() !== "").map((o) => `
+    <tr>
+      <td style="width:32%;">${o.titre}</td>
+      <td style="width:28%;">${o.auteur || "—"}</td>
+      <td><div class="blank-lines"></div></td>
+    </tr>
+  `).join("");
+
+  const vocabItems = s.vocab.filter((v) => v.mot.trim() !== "");
+  const vocabRows = vocabItems.map((v) => `
+    <tr>
+      <td>${v.definition || '<span class="hint">définition à compléter par l\u2019enseignant</span>'}</td>
+      <td style="width:26%;"><div class="blank-line"></div></td>
+    </tr>
+  `).join("");
+  const banqueMots = vocabItems.map((v) => v.mot).join(" · ");
+
+  const checklistItems = s.notion.attendus.map((a) => `<li><span class="checkbox"></span>${a}</li>`).join("");
+
+  el("fiche-cours").innerHTML = `
+    <div class="fiche-header">
+      <div>
+        <div class="titre-fiche">${s.notion.titre}</div>
+        <div class="hint">Classe de ${s.niveau} — ${g.cycle}${s.etablissement ? " — " + s.etablissement : ""}</div>
+      </div>
+      <div class="type-fiche">Fiche de cours</div>
+    </div>
+
+    <div class="ref-box">${g.reference_programme}<br><strong>Domaine :</strong> ${s.notion.domaine}</div>
+
+    <h4>Problématique</h4>
+    <p><em>${s.problematique}</em></p>
+
+    <h4>Œuvres étudiées</h4>
+    <table>
+      <thead><tr><th>Titre</th><th>Auteur / interprète</th><th>Ce que je retiens</th></tr></thead>
+      <tbody>${oeuvresRows || "<tr><td colspan='3'>Aucune œuvre renseignée pour le moment</td></tr>"}</tbody>
+    </table>
+
+    <h4>Vocabulaire — à compléter</h4>
+    <p class="hint">Retrouvez le mot correspondant à chaque définition à l'aide de la banque de mots.</p>
+    <table>
+      <thead><tr><th>Définition</th><th>Mot</th></tr></thead>
+      <tbody>${vocabRows || "<tr><td colspan='2'>Aucun mot renseigné pour le moment</td></tr>"}</tbody>
+    </table>
+    ${banqueMots ? `<p class="hint"><strong>Banque de mots :</strong> ${banqueMots}</p>` : ""}
+
+    <h4>Ce que je dois savoir</h4>
+    <ul class="checklist">${checklistItems}</ul>
+
+    <h4>Synthèse personnelle</h4>
+    <div class="blank-lines"></div><div class="blank-lines"></div><div class="blank-lines"></div>
+  `;
+}
+
 function switchFiche(which) {
   document.querySelectorAll(".fiche").forEach((f) => f.classList.remove("active"));
   el(`fiche-${which}`).classList.add("active");
-  ["eleve", "prof", "trace"].forEach((k) => {
+  ["eleve", "prof", "trace", "cours"].forEach((k) => {
     el(`btn-fiche-${k}`).classList.toggle("secondary", k !== which);
   });
 }
