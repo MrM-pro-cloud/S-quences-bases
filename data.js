@@ -876,4 +876,3 @@ const LEXIQUE = {
   "ad libitum": "Passage musical où l'interprète est libre du tempo.",
   "MC": "Maître de cérémonie, animateur et chanteur dans le rap."
 };
-};
