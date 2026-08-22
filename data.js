@@ -361,6 +361,30 @@ const GABARITS = {
           { titre: "Exemple de musique de danse antillaise (zouk, biguine) à sélectionner", auteur: "à préciser", note: "ancrage culturel local — sélection à valider par vous" }
         ],
         a_valider: true
+      },
+      {
+        id: "gospel-carrefour-traditions",
+        ordre: 9,
+        periode: "Période 1",
+        titre: "Le Gospel, carrefour entre tradition orale africaine et musiques actuelles",
+        domaine: "Style",
+        attendus: [
+          "Relier une musique à un contexte historique et social donné",
+          "Identifier des évolutions et ruptures stylistiques entre plusieurs œuvres"
+        ],
+        vocabulaire: ["chant responsorial", "polyphonie", "improvisation", "ostinato rythmique", "mélisme", "rubato", "syncrétisme", "preach", "worksong", "jubilé", "ad libitum", "MC"],
+        problematiques_exemples: [
+          "En quoi le Gospel est-il un carrefour entre tradition orale africaine et musiques populaires actuelles ?"
+        ],
+        oeuvres_suggerees: [
+          { titre: "Chant a cappella (isicathamiya)", auteur: "Ladysmith Black Mambazo", note: "chant responsorial, Afrique du Sud" },
+          { titre: "Worksong", auteur: "BO de O Brother, Where Art Thou?", note: "monodie, chant de travail" },
+          { titre: "Testimonial (1927)", auteur: "Reverend W.M. Nix", note: "sermon rythmé et scandé (le \"preach\"), ancêtre du rap" },
+          { titre: "Amazing Grace", auteur: "Mahalia Jackson", note: "mélisme, orgue, rubato" },
+          { titre: "Freedom", auteur: "chant traditionnel", note: "chant responsorial et polyphonie — projet musical retenu" },
+          { titre: "Jesus Walks", auteur: "Kanye West", note: "syncrétisme gospel/rap" }
+        ],
+        a_valider: true
       }
     ]
   },
@@ -841,5 +865,15 @@ const LEXIQUE = {
   "walking bass": "Ligne de basse continue en jazz, jouant une note par temps pour soutenir l'harmonie.",
   "scène musicale": "Ensemble des artistes, lieux et pratiques qui font vivre la musique d'un territoire à un moment donné.",
   "identité culturelle": "Ensemble des traits qui rattachent une œuvre ou une pratique à une culture particulière.",
-  "actualité musicale": "Ensemble des productions et évènements musicaux récents."
+  "actualité musicale": "Ensemble des productions et évènements musicaux récents.",
+  "chant responsorial": "Structure musicale en question-réponse entre un soliste et un chœur.",
+  "mélisme": "Plusieurs notes chantées sur une seule syllabe.",
+  "rubato": "Liberté rythmique et expressive prise par l'interprète par rapport au tempo strict.",
+  "syncrétisme": "Fusion de plusieurs traditions culturelles ou musicales distinctes.",
+  "preach": "Sermon rythmé et scandé, prononcé par un pasteur dans les églises noires américaines.",
+  "worksong": "Chant de travail rythmé, entonné collectivement pendant l'esclavage.",
+  "jubilé": "Moment d'improvisation vocale intense dans le gospel.",
+  "ad libitum": "Passage musical où l'interprète est libre du tempo.",
+  "MC": "Maître de cérémonie, animateur et chanteur dans le rap."
+};
 };
