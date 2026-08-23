@@ -52,6 +52,9 @@
             <label class="radio-option">
               <input type="radio" name="entree-par" value="oeuvre"> Œuvre principale
             </label>
+            <label class="radio-option">
+              <input type="radio" name="entree-par" value="domaine"> Domaine (tous niveaux)
+            </label>
           </div>
         </div>
 
@@ -73,15 +76,23 @@
         </div>
 
         <div class="field" id="field-problematique" style="display:none;">
-          <label for="problematique-recherche">Choisir une problématique existante</label>
+          <label for="problematique-recherche">Choisir une problématique existante (tous niveaux)</label>
           <select id="problematique-recherche"></select>
-          <p class="hint">Liste de toutes les problématiques proposées, toutes notions confondues, pour ce niveau. La sélection détermine la notion et pré-remplit la problématique ci-dessous.</p>
+          <p class="hint">Liste de toutes les problématiques proposées, tous niveaux et toutes notions confondus. La sélection resynchronise le niveau et la notion, et pré-remplit la problématique ci-dessous.</p>
         </div>
 
         <div class="field" id="field-oeuvre" style="display:none;">
-          <label for="oeuvre-recherche">Choisir une œuvre principale</label>
+          <label for="oeuvre-recherche">Choisir une œuvre principale (tous niveaux)</label>
           <select id="oeuvre-recherche"></select>
-          <p class="hint">Liste de toutes les œuvres suggérées, toutes notions confondues, pour ce niveau. La sélection détermine la notion et place l'œuvre en tête de la fiche.</p>
+          <p class="hint">Liste de toutes les œuvres suggérées, tous niveaux et toutes notions confondus. La sélection resynchronise le niveau et la notion, et place l'œuvre en tête de la fiche.</p>
+        </div>
+
+        <div class="field" id="field-domaine" style="display:none;">
+          <label for="domaine-select">Domaine du programme</label>
+          <select id="domaine-select"></select>
+          <label for="domaine-notion-recherche" style="margin-top:0.6rem;">Notion correspondante (tous niveaux)</label>
+          <select id="domaine-notion-recherche"></select>
+          <p class="hint">Vue transversale utile pour vérifier la progression spiralaire d'un domaine d'une année sur l'autre. La sélection resynchronise le niveau sur celui réel de la notion choisie.</p>
         </div>
 
         <details style="margin-bottom:1.2rem;">

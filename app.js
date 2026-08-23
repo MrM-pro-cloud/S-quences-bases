@@ -44,9 +44,15 @@ function initApp() {
 
   el("problematique-recherche").addEventListener("change", onProblematiqueRechercheChange);
   el("oeuvre-recherche").addEventListener("change", onOeuvreRechercheChange);
+  el("domaine-select").addEventListener("change", onDomaineChange);
+  el("domaine-notion-recherche").addEventListener("change", onDomaineNotionChange);
   el("competence-select").addEventListener("change", (e) => {
     state.competencePrioritaire = e.target.value;
   });
+
+  buildProblematiqueSelect();
+  buildOeuvreSelect();
+  buildDomaineSelect();
 
   document.querySelectorAll('input[name="nb-seances"]').forEach((r) => {
     r.addEventListener("change", () => {
@@ -104,8 +110,6 @@ function onNiveauChange() {
   });
   renderProgressionAnnuelle(niveau);
   buildCompetenceSelect(niveau);
-  buildProblematiqueSelect(niveau);
-  buildOeuvreSelect(niveau);
   onNotionChange();
 }
 
@@ -117,6 +121,7 @@ function onEntreeParChange() {
   el("field-competence").style.display = (mode === "competence") ? "" : "none";
   el("field-problematique").style.display = (mode === "problematique") ? "" : "none";
   el("field-oeuvre").style.display = (mode === "oeuvre") ? "" : "none";
+  el("field-domaine").style.display = (mode === "domaine") ? "" : "none";
 }
 
 function buildCompetenceSelect(niveau) {
@@ -132,77 +137,142 @@ function buildCompetenceSelect(niveau) {
   state.competencePrioritaire = GABARITS[niveau].competences[0] || "";
 }
 
-// Index à plat : une entrée par (notion, problématique) sur le niveau donné.
-function buildProblematiqueIndex(niveau) {
-  if (!niveau || !GABARITS[niveau]) return [];
+// Index à plat : une entrée par (niveau, notion, problématique), tous niveaux confondus.
+function buildProblematiqueIndex() {
   const index = [];
-  GABARITS[niveau].notions.forEach((n) => {
-    (n.problematiques_exemples || []).forEach((p) => {
-      index.push({ notionId: n.id, notionTitre: n.titre, problematique: p });
+  Object.keys(GABARITS).forEach((niveau) => {
+    GABARITS[niveau].notions.forEach((n) => {
+      (n.problematiques_exemples || []).forEach((p) => {
+        index.push({ niveau, notionId: n.id, notionTitre: n.titre, problematique: p });
+      });
     });
   });
   return index;
 }
 
-function buildProblematiqueSelect(niveau) {
+function buildProblematiqueSelect() {
   const select = el("problematique-recherche");
   select.innerHTML = "";
-  const index = buildProblematiqueIndex(niveau);
-  index.forEach((entry, i) => {
+  buildProblematiqueIndex().forEach((entry, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);
-    opt.textContent = `${entry.problematique} (${entry.notionTitre})`;
+    opt.textContent = `${entry.problematique} (${entry.niveau} — ${entry.notionTitre})`;
     select.appendChild(opt);
   });
-  select.dataset.niveau = niveau || "";
 }
 
 function onProblematiqueRechercheChange() {
-  const niveau = el("niveau").value;
-  const index = buildProblematiqueIndex(niveau);
+  const index = buildProblematiqueIndex();
   const i = parseInt(el("problematique-recherche").value, 10);
   const entry = index[i];
   if (!entry) return;
-  el("notion").value = entry.notionId;
-  onNotionChange();
+  switchNiveauEtNotion(entry.niveau, entry.notionId);
   el("problematique-custom").value = entry.problematique;
 }
 
-// Index à plat : une entrée par (notion, œuvre suggérée) sur le niveau donné.
-function buildOeuvreIndex(niveau) {
-  if (!niveau || !GABARITS[niveau]) return [];
+// Index à plat : une entrée par (niveau, notion, œuvre suggérée), tous niveaux confondus.
+function buildOeuvreIndex() {
   const index = [];
-  GABARITS[niveau].notions.forEach((n) => {
-    (n.oeuvres_suggerees || []).forEach((o) => {
-      index.push({ notionId: n.id, notionTitre: n.titre, oeuvre: o });
+  Object.keys(GABARITS).forEach((niveau) => {
+    GABARITS[niveau].notions.forEach((n) => {
+      (n.oeuvres_suggerees || []).forEach((o) => {
+        index.push({ niveau, notionId: n.id, notionTitre: n.titre, oeuvre: o });
+      });
     });
   });
   return index;
 }
 
-function buildOeuvreSelect(niveau) {
+function buildOeuvreSelect() {
   const select = el("oeuvre-recherche");
   select.innerHTML = "";
-  const index = buildOeuvreIndex(niveau);
-  index.forEach((entry, i) => {
+  buildOeuvreIndex().forEach((entry, i) => {
     const opt = document.createElement("option");
     opt.value = String(i);
-    opt.textContent = `${entry.oeuvre.titre} — ${entry.oeuvre.auteur || "auteur à préciser"} (${entry.notionTitre})`;
+    opt.textContent = `${entry.oeuvre.titre} — ${entry.oeuvre.auteur || "auteur à préciser"} (${entry.niveau} — ${entry.notionTitre})`;
     select.appendChild(opt);
   });
-  select.dataset.niveau = niveau || "";
 }
 
 function onOeuvreRechercheChange() {
-  const niveau = el("niveau").value;
-  const index = buildOeuvreIndex(niveau);
+  const index = buildOeuvreIndex();
   const i = parseInt(el("oeuvre-recherche").value, 10);
   const entry = index[i];
   if (!entry) return;
-  el("notion").value = entry.notionId;
-  onNotionChange();
+  switchNiveauEtNotion(entry.niveau, entry.notionId);
   // Mémorise l'œuvre choisie pour la replacer en tête de liste lors de la génération.
   state._oeuvrePrincipaleChoisie = entry.oeuvre;
+}
+
+// Index à plat : une entrée par (domaine, niveau, notion), tous niveaux confondus.
+// Vue transversale utilisant le champ "domaine", seul axe déjà cohérent entre les 4 niveaux
+// (les autres champs — attendus, vocabulaire, reference_programme — sont calibrés par cycle
+// et ne doivent pas être transposés tels quels d'un niveau à l'autre).
+function buildDomaineListeUnique() {
+  const domaines = new Set();
+  Object.keys(GABARITS).forEach((niveau) => {
+    GABARITS[niveau].notions.forEach((n) => domaines.add(n.domaine));
+  });
+  return [...domaines].sort();
+}
+
+function buildDomaineIndex(domaine) {
+  const index = [];
+  Object.keys(GABARITS).forEach((niveau) => {
+    GABARITS[niveau].notions.forEach((n) => {
+      if (n.domaine === domaine) {
+        index.push({ niveau, notionId: n.id, notionTitre: n.titre, periode: n.periode });
+      }
+    });
+  });
+  // Tri par niveau pour lire la progression spiralaire dans l'ordre 6e -> 3e
+  const ordreNiveaux = ["6e", "5e", "4e", "3e"];
+  index.sort((a, b) => ordreNiveaux.indexOf(a.niveau) - ordreNiveaux.indexOf(b.niveau));
+  return index;
+}
+
+function buildDomaineSelect() {
+  const select = el("domaine-select");
+  select.innerHTML = "";
+  buildDomaineListeUnique().forEach((d) => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = d;
+    select.appendChild(opt);
+  });
+  onDomaineChange();
+}
+
+function onDomaineChange() {
+  const domaine = el("domaine-select").value;
+  const select = el("domaine-notion-recherche");
+  select.innerHTML = "";
+  buildDomaineIndex(domaine).forEach((entry, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `${entry.niveau} — ${entry.notionTitre} (${entry.periode})`;
+    select.appendChild(opt);
+  });
+}
+
+function onDomaineNotionChange() {
+  const domaine = el("domaine-select").value;
+  const index = buildDomaineIndex(domaine);
+  const i = parseInt(el("domaine-notion-recherche").value, 10);
+  const entry = index[i];
+  if (!entry) return;
+  switchNiveauEtNotion(entry.niveau, entry.notionId);
+}
+
+// Resynchronise le sélecteur de niveau (et tout ce qui en dépend) avant de fixer la notion,
+// pour garantir que reference_programme / attendus / vocabulaire restent ceux du bon cycle.
+function switchNiveauEtNotion(niveau, notionId) {
+  if (el("niveau").value !== niveau) {
+    el("niveau").value = niveau;
+    onNiveauChange();
+  }
+  el("notion").value = notionId;
+  onNotionChange();
 }
 
 function renderProgressionAnnuelle(niveau) {
