@@ -5,6 +5,8 @@
 const state = {
   niveau: null,
   notion: null,
+  entreePar: "notion",       // "notion" | "problematique" | "competence" | "oeuvre"
+  competencePrioritaire: "", // renseignée seulement si entreePar === "competence"
   nbSeances: 5,
   etablissement: "",
   classe: "",
@@ -30,6 +32,21 @@ function initApp() {
   niveauSelect.addEventListener("change", onNiveauChange);
   el("notion").addEventListener("change", onNotionChange);
   el("form-parametres").addEventListener("submit", onGenerate);
+
+  document.querySelectorAll('input[name="entree-par"]').forEach((r) => {
+    r.addEventListener("change", () => {
+      document.querySelectorAll('input[name="entree-par"]').forEach((o) => o.closest(".radio-option").classList.remove("selected"));
+      r.closest(".radio-option").classList.add("selected");
+      state.entreePar = r.value;
+      onEntreeParChange();
+    });
+  });
+
+  el("problematique-recherche").addEventListener("change", onProblematiqueRechercheChange);
+  el("oeuvre-recherche").addEventListener("change", onOeuvreRechercheChange);
+  el("competence-select").addEventListener("change", (e) => {
+    state.competencePrioritaire = e.target.value;
+  });
 
   document.querySelectorAll('input[name="nb-seances"]').forEach((r) => {
     r.addEventListener("change", () => {
@@ -70,6 +87,7 @@ function initApp() {
   });
 
   onNiveauChange();
+  onEntreeParChange();
 }
 
 function onNiveauChange() {
@@ -85,7 +103,106 @@ function onNiveauChange() {
     notionSelect.appendChild(opt);
   });
   renderProgressionAnnuelle(niveau);
+  buildCompetenceSelect(niveau);
+  buildProblematiqueSelect(niveau);
+  buildOeuvreSelect(niveau);
   onNotionChange();
+}
+
+// --- Points d'entrée alternatifs -------------------------------------------
+
+function onEntreeParChange() {
+  const mode = state.entreePar;
+  el("field-notion").style.display = (mode === "notion" || mode === "competence") ? "" : "none";
+  el("field-competence").style.display = (mode === "competence") ? "" : "none";
+  el("field-problematique").style.display = (mode === "problematique") ? "" : "none";
+  el("field-oeuvre").style.display = (mode === "oeuvre") ? "" : "none";
+}
+
+function buildCompetenceSelect(niveau) {
+  const select = el("competence-select");
+  select.innerHTML = "";
+  if (!niveau || !GABARITS[niveau]) return;
+  GABARITS[niveau].competences.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    select.appendChild(opt);
+  });
+  state.competencePrioritaire = GABARITS[niveau].competences[0] || "";
+}
+
+// Index à plat : une entrée par (notion, problématique) sur le niveau donné.
+function buildProblematiqueIndex(niveau) {
+  if (!niveau || !GABARITS[niveau]) return [];
+  const index = [];
+  GABARITS[niveau].notions.forEach((n) => {
+    (n.problematiques_exemples || []).forEach((p) => {
+      index.push({ notionId: n.id, notionTitre: n.titre, problematique: p });
+    });
+  });
+  return index;
+}
+
+function buildProblematiqueSelect(niveau) {
+  const select = el("problematique-recherche");
+  select.innerHTML = "";
+  const index = buildProblematiqueIndex(niveau);
+  index.forEach((entry, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `${entry.problematique} (${entry.notionTitre})`;
+    select.appendChild(opt);
+  });
+  select.dataset.niveau = niveau || "";
+}
+
+function onProblematiqueRechercheChange() {
+  const niveau = el("niveau").value;
+  const index = buildProblematiqueIndex(niveau);
+  const i = parseInt(el("problematique-recherche").value, 10);
+  const entry = index[i];
+  if (!entry) return;
+  el("notion").value = entry.notionId;
+  onNotionChange();
+  el("problematique-custom").value = entry.problematique;
+}
+
+// Index à plat : une entrée par (notion, œuvre suggérée) sur le niveau donné.
+function buildOeuvreIndex(niveau) {
+  if (!niveau || !GABARITS[niveau]) return [];
+  const index = [];
+  GABARITS[niveau].notions.forEach((n) => {
+    (n.oeuvres_suggerees || []).forEach((o) => {
+      index.push({ notionId: n.id, notionTitre: n.titre, oeuvre: o });
+    });
+  });
+  return index;
+}
+
+function buildOeuvreSelect(niveau) {
+  const select = el("oeuvre-recherche");
+  select.innerHTML = "";
+  const index = buildOeuvreIndex(niveau);
+  index.forEach((entry, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `${entry.oeuvre.titre} — ${entry.oeuvre.auteur || "auteur à préciser"} (${entry.notionTitre})`;
+    select.appendChild(opt);
+  });
+  select.dataset.niveau = niveau || "";
+}
+
+function onOeuvreRechercheChange() {
+  const niveau = el("niveau").value;
+  const index = buildOeuvreIndex(niveau);
+  const i = parseInt(el("oeuvre-recherche").value, 10);
+  const entry = index[i];
+  if (!entry) return;
+  el("notion").value = entry.notionId;
+  onNotionChange();
+  // Mémorise l'œuvre choisie pour la replacer en tête de liste lors de la génération.
+  state._oeuvrePrincipaleChoisie = entry.oeuvre;
 }
 
 function renderProgressionAnnuelle(niveau) {
@@ -146,6 +263,21 @@ function onGenerate(e) {
 
   state.vocab = initVocabFromNotion(notion, nbSeances);
   state.oeuvres = notion.oeuvres_suggerees.map((o) => ({ titre: o.titre, auteur: o.auteur, note: o.note || "", lienAnalyse: o.lien_analyse || "" }));
+
+  // Si l'entrée s'est faite par œuvre principale, elle est replacée en tête de liste
+  // (le modèle de données ne distingue pas "principale" de "satellite" : la position
+  // dans la liste joue ce rôle sur la fiche de cours).
+  if (state.entreePar === "oeuvre" && state._oeuvrePrincipaleChoisie) {
+    const cible = state._oeuvrePrincipaleChoisie.titre;
+    state.oeuvres.sort((a, b) => (a.titre === cible ? -1 : b.titre === cible ? 1 : 0));
+  }
+
+  // La compétence prioritaire n'est renseignée que si l'entrée s'est faite par compétence ;
+  // sinon on l'efface pour ne pas afficher un choix qui ne correspond plus au contexte.
+  if (state.entreePar !== "competence") {
+    state.competencePrioritaire = "";
+  }
+
   state.ressources = [];
   state.illustrationUrl = el("illustration-url").value.trim();
 
@@ -455,7 +587,10 @@ function renderSequence() {
   el("seq-etablissement").textContent = [state.etablissement, state.classe].filter(Boolean).join(" · ") || "—";
   el("problematique-live").value = state.problematique;
   el("seq-reference").innerHTML = `<div class="ref-box">${g.reference_programme}</div>`;
-  el("seq-competences").innerHTML = g.competences.map((c) => `<li>${c}</li>`).join("");
+  el("seq-competences").innerHTML = g.competences.map((c) => {
+    const prioritaire = state.competencePrioritaire && c === state.competencePrioritaire;
+    return `<li${prioritaire ? ' style="font-weight:700;"' : ''}>${c}${prioritaire ? ' <span class="hint">— entrée choisie</span>' : ''}</li>`;
+  }).join("");
   el("seq-attendus").innerHTML = state.notion.attendus.map((a) => `<li>${a}</li>`).join("");
   renderSeancesTable();
 }

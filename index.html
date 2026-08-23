@@ -37,15 +37,51 @@
       <h2>Paramètres de la séquence</h2>
       <form id="form-parametres">
 
+        <div class="field">
+          <label>Point d'entrée</label>
+          <div class="radio-group">
+            <label class="radio-option selected">
+              <input type="radio" name="entree-par" value="notion" checked> Notion
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="entree-par" value="problematique"> Problématique
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="entree-par" value="competence"> Compétence
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="entree-par" value="oeuvre"> Œuvre principale
+            </label>
+          </div>
+        </div>
+
         <div class="field-row">
           <div class="field">
             <label for="niveau">Niveau</label>
             <select id="niveau" required></select>
           </div>
-          <div class="field">
+          <div class="field" id="field-notion">
             <label for="notion">Notion / entrée du programme</label>
             <select id="notion" required></select>
           </div>
+        </div>
+
+        <div class="field" id="field-competence" style="display:none;">
+          <label for="competence-select">Compétence à mettre en avant</label>
+          <select id="competence-select"></select>
+          <p class="hint">Les compétences sont définies par cycle, pas par notion : ce choix met en avant une compétence dans la fiche, il ne filtre pas la liste des notions ci-dessous.</p>
+        </div>
+
+        <div class="field" id="field-problematique" style="display:none;">
+          <label for="problematique-recherche">Choisir une problématique existante</label>
+          <select id="problematique-recherche"></select>
+          <p class="hint">Liste de toutes les problématiques proposées, toutes notions confondues, pour ce niveau. La sélection détermine la notion et pré-remplit la problématique ci-dessous.</p>
+        </div>
+
+        <div class="field" id="field-oeuvre" style="display:none;">
+          <label for="oeuvre-recherche">Choisir une œuvre principale</label>
+          <select id="oeuvre-recherche"></select>
+          <p class="hint">Liste de toutes les œuvres suggérées, toutes notions confondues, pour ce niveau. La sélection détermine la notion et place l'œuvre en tête de la fiche.</p>
         </div>
 
         <details style="margin-bottom:1.2rem;">
