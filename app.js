@@ -69,6 +69,7 @@ function initApp() {
   el("btn-fiche-prof").addEventListener("click", () => switchFiche("prof"));
   el("btn-fiche-trace").addEventListener("click", () => switchFiche("trace"));
   el("btn-fiche-cours").addEventListener("click", () => switchFiche("cours"));
+  el("btn-fiche-mindmap").addEventListener("click", () => switchFiche("mindmap"));
   el("btn-print").addEventListener("click", () => window.print());
 
   el("btn-add-vocab").addEventListener("click", addVocabRow);
@@ -686,6 +687,7 @@ function renderFiches() {
   renderFicheProf();
   renderFicheTrace();
   renderFicheCours();
+  renderFicheMindmap();
   switchFiche("eleve");
 }
 
@@ -950,10 +952,77 @@ function renderFicheCours() {
   `;
 }
 
+// Palette de teintes tirée des variables CSS existantes plutôt que de couleurs
+// vives importées, pour rester cohérent avec le système visuel de l'app.
+const MINDMAP_TINTS = ["#F5E9E1", "#E4EAF0", "#E8F0E7", "#EFEFEF", "#E3F3F3", "#FBF0DD"];
+
+function renderFicheMindmap() {
+  const s = state;
+
+  // Colonne gauche : une case par mot de vocabulaire réellement présent
+  // (state.vocab reflète les éventuelles modifications faites dans l'éditeur
+  // de vocabulaire, pas seulement la liste brute de la notion).
+  const vocabItems = s.vocab.filter((v) => v.mot.trim() !== "");
+  const vocabCards = vocabItems.map((v, i) => `
+    <div class="mindmap-card" style="background:${MINDMAP_TINTS[i % MINDMAP_TINTS.length]};">
+      <h5>${v.mot.charAt(0).toUpperCase()}${v.mot.slice(1)}</h5>
+      <p>${v.definition || '<span class="hint">définition à compléter</span>'}</p>
+    </div>
+  `).join("");
+
+  // Colonne droite : cases pédagogiques fixes (nombre constant, contenu variable).
+  const oeuvrePrincipale = s.oeuvres[0];
+  const oeuvresSatellites = s.oeuvres.slice(1).filter((o) => o.titre.trim() !== "");
+
+  const rightCards = [
+    { titre: "Problématique", contenu: `<p>${s.problematique || '<span class="hint">non renseignée</span>'}</p>` },
+    {
+      titre: "Œuvre principale",
+      contenu: (oeuvrePrincipale && oeuvrePrincipale.titre.trim() !== "")
+        ? `<p>${oeuvrePrincipale.titre}${oeuvrePrincipale.auteur ? " — " + oeuvrePrincipale.auteur : ""}</p>`
+        : '<p class="hint">Aucune œuvre principale renseignée</p>',
+    },
+    {
+      titre: "Œuvres satellites",
+      contenu: oeuvresSatellites.length
+        ? `<ul>${oeuvresSatellites.map((o) => `<li>${o.titre}${o.auteur ? " — " + o.auteur : ""}</li>`).join("")}</ul>`
+        : '<p class="hint">Aucune œuvre satellite renseignée</p>',
+    },
+    { titre: "Ce que je dois savoir faire", contenu: `<ul>${s.notion.attendus.map((a) => `<li>${a}</li>`).join("")}</ul>` },
+    { titre: "Synthèse personnelle", contenu: `<div class="blank-lines"></div><div class="blank-lines"></div>` },
+  ];
+  const rightCardsHtml = rightCards.map((c, i) => `
+    <div class="mindmap-card" style="background:${MINDMAP_TINTS[(i + 1) % MINDMAP_TINTS.length]};">
+      <h5>${c.titre}</h5>
+      ${c.contenu}
+    </div>
+  `).join("");
+
+  // Centre : illustration si renseignée, sinon repère de domaine — jamais une
+  // case vide, pour ne pas casser visuellement la grille.
+  const centre = s.illustrationUrl
+    ? `<img src="${s.illustrationUrl}" alt="Illustration — ${s.notion.titre}" style="max-width:100%; border-radius:8px;">`
+    : `<div class="hint">${s.notion.domaine}</div>`;
+
+  el("fiche-mindmap").innerHTML = `
+    <div class="mindmap-title">
+      ${s.notion.titre}
+      <div class="hint" style="font-family:var(--font-body); font-size:0.85rem; margin-top:0.2rem;">
+        Classe de ${s.niveau}${s.etablissement ? " — " + s.etablissement : ""}
+      </div>
+    </div>
+    <div class="mindmap-grid">
+      <div class="mindmap-col">${vocabCards || '<p class="hint">Aucun mot de vocabulaire renseigné</p>'}</div>
+      <div class="mindmap-center">${centre}</div>
+      <div class="mindmap-col">${rightCardsHtml}</div>
+    </div>
+  `;
+}
+
 function switchFiche(which) {
   document.querySelectorAll(".fiche").forEach((f) => f.classList.remove("active"));
   el(`fiche-${which}`).classList.add("active");
-  ["eleve", "prof", "trace", "cours"].forEach((k) => {
+  ["eleve", "prof", "trace", "cours", "mindmap"].forEach((k) => {
     el(`btn-fiche-${k}`).classList.toggle("secondary", k !== which);
   });
 }
