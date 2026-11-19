@@ -5,16 +5,12 @@
 const state = {
   niveau: null,
   notion: null,
-  entreePar: "notion",       // "notion" | "problematique" | "competence" | "oeuvre"
-  competencePrioritaire: "", // renseignée seulement si entreePar === "competence"
   nbSeances: 5,
   etablissement: "",
   classe: "",
   problematique: "",
-  vocab: [],       // [{ mot, definition, seance }]
-  oeuvres: [],     // [{ titre, auteur, note, lienAnalyse }]
-  ressources: [],  // [{ label, url, seance }]
-  illustrationUrl: "",
+  vocab: [],     // [{ mot, definition, seance }]
+  oeuvres: [],   // [{ titre, auteur, note }]
   seances: [],
 };
 
@@ -33,27 +29,6 @@ function initApp() {
   el("notion").addEventListener("change", onNotionChange);
   el("form-parametres").addEventListener("submit", onGenerate);
 
-  document.querySelectorAll('input[name="entree-par"]').forEach((r) => {
-    r.addEventListener("change", () => {
-      document.querySelectorAll('input[name="entree-par"]').forEach((o) => o.closest(".radio-option").classList.remove("selected"));
-      r.closest(".radio-option").classList.add("selected");
-      state.entreePar = r.value;
-      onEntreeParChange();
-    });
-  });
-
-  el("problematique-recherche").addEventListener("change", onProblematiqueRechercheChange);
-  el("oeuvre-recherche").addEventListener("change", onOeuvreRechercheChange);
-  el("domaine-select").addEventListener("change", onDomaineChange);
-  el("domaine-notion-recherche").addEventListener("change", onDomaineNotionChange);
-  el("competence-select").addEventListener("change", (e) => {
-    state.competencePrioritaire = e.target.value;
-  });
-
-  buildProblematiqueSelect();
-  buildOeuvreSelect();
-  buildDomaineSelect();
-
   document.querySelectorAll('input[name="nb-seances"]').forEach((r) => {
     r.addEventListener("change", () => {
       document.querySelectorAll(".radio-option").forEach((o) => o.classList.remove("selected"));
@@ -68,8 +43,6 @@ function initApp() {
   el("btn-fiche-eleve").addEventListener("click", () => switchFiche("eleve"));
   el("btn-fiche-prof").addEventListener("click", () => switchFiche("prof"));
   el("btn-fiche-trace").addEventListener("click", () => switchFiche("trace"));
-  el("btn-fiche-cours").addEventListener("click", () => switchFiche("cours"));
-  el("btn-fiche-mindmap").addEventListener("click", () => switchFiche("mindmap"));
   el("btn-print").addEventListener("click", () => window.print());
 
   el("btn-add-vocab").addEventListener("click", addVocabRow);
@@ -80,21 +53,11 @@ function initApp() {
   el("oeuvres-editor").addEventListener("click", onOeuvresEditorClick);
   el("oeuvres-editor").addEventListener("input", onOeuvresEditorInput);
 
-  el("btn-add-ressource").addEventListener("click", addRessourceRow);
-  el("ressources-editor").addEventListener("click", onRessourcesEditorClick);
-  el("ressources-editor").addEventListener("input", onRessourcesEditorInput);
-  el("ressources-editor").addEventListener("change", onRessourcesEditorInput);
-
-  el("illustration-url").addEventListener("input", (e) => {
-    state.illustrationUrl = e.target.value.trim();
-  });
-
   el("problematique-live").addEventListener("input", (e) => {
     state.problematique = e.target.value;
   });
 
   onNiveauChange();
-  onEntreeParChange();
 }
 
 function onNiveauChange() {
@@ -110,169 +73,6 @@ function onNiveauChange() {
     notionSelect.appendChild(opt);
   });
   renderProgressionAnnuelle(niveau);
-  buildCompetenceSelect(niveau);
-  onNotionChange();
-}
-
-// --- Points d'entrée alternatifs -------------------------------------------
-
-function onEntreeParChange() {
-  const mode = state.entreePar;
-  el("field-notion").style.display = (mode === "notion" || mode === "competence") ? "" : "none";
-  el("field-competence").style.display = (mode === "competence") ? "" : "none";
-  el("field-problematique").style.display = (mode === "problematique") ? "" : "none";
-  el("field-oeuvre").style.display = (mode === "oeuvre") ? "" : "none";
-  el("field-domaine").style.display = (mode === "domaine") ? "" : "none";
-}
-
-function buildCompetenceSelect(niveau) {
-  const select = el("competence-select");
-  select.innerHTML = "";
-  if (!niveau || !GABARITS[niveau]) return;
-  GABARITS[niveau].competences.forEach((c) => {
-    const opt = document.createElement("option");
-    opt.value = c;
-    opt.textContent = c;
-    select.appendChild(opt);
-  });
-  state.competencePrioritaire = GABARITS[niveau].competences[0] || "";
-}
-
-// Index à plat : une entrée par (niveau, notion, problématique), tous niveaux confondus.
-function buildProblematiqueIndex() {
-  const index = [];
-  Object.keys(GABARITS).forEach((niveau) => {
-    GABARITS[niveau].notions.forEach((n) => {
-      (n.problematiques_exemples || []).forEach((p) => {
-        index.push({ niveau, notionId: n.id, notionTitre: n.titre, problematique: p });
-      });
-    });
-  });
-  return index;
-}
-
-function buildProblematiqueSelect() {
-  const select = el("problematique-recherche");
-  select.innerHTML = "";
-  buildProblematiqueIndex().forEach((entry, i) => {
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = `${entry.problematique} (${entry.niveau} — ${entry.notionTitre})`;
-    select.appendChild(opt);
-  });
-}
-
-function onProblematiqueRechercheChange() {
-  const index = buildProblematiqueIndex();
-  const i = parseInt(el("problematique-recherche").value, 10);
-  const entry = index[i];
-  if (!entry) return;
-  switchNiveauEtNotion(entry.niveau, entry.notionId);
-  el("problematique-custom").value = entry.problematique;
-}
-
-// Index à plat : une entrée par (niveau, notion, œuvre suggérée), tous niveaux confondus.
-function buildOeuvreIndex() {
-  const index = [];
-  Object.keys(GABARITS).forEach((niveau) => {
-    GABARITS[niveau].notions.forEach((n) => {
-      (n.oeuvres_suggerees || []).forEach((o) => {
-        index.push({ niveau, notionId: n.id, notionTitre: n.titre, oeuvre: o });
-      });
-    });
-  });
-  return index;
-}
-
-function buildOeuvreSelect() {
-  const select = el("oeuvre-recherche");
-  select.innerHTML = "";
-  buildOeuvreIndex().forEach((entry, i) => {
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = `${entry.oeuvre.titre} — ${entry.oeuvre.auteur || "auteur à préciser"} (${entry.niveau} — ${entry.notionTitre})`;
-    select.appendChild(opt);
-  });
-}
-
-function onOeuvreRechercheChange() {
-  const index = buildOeuvreIndex();
-  const i = parseInt(el("oeuvre-recherche").value, 10);
-  const entry = index[i];
-  if (!entry) return;
-  switchNiveauEtNotion(entry.niveau, entry.notionId);
-  // Mémorise l'œuvre choisie pour la replacer en tête de liste lors de la génération.
-  state._oeuvrePrincipaleChoisie = entry.oeuvre;
-}
-
-// Index à plat : une entrée par (domaine, niveau, notion), tous niveaux confondus.
-// Vue transversale utilisant le champ "domaine", seul axe déjà cohérent entre les 4 niveaux
-// (les autres champs — attendus, vocabulaire, reference_programme — sont calibrés par cycle
-// et ne doivent pas être transposés tels quels d'un niveau à l'autre).
-function buildDomaineListeUnique() {
-  const domaines = new Set();
-  Object.keys(GABARITS).forEach((niveau) => {
-    GABARITS[niveau].notions.forEach((n) => domaines.add(n.domaine));
-  });
-  return [...domaines].sort();
-}
-
-function buildDomaineIndex(domaine) {
-  const index = [];
-  Object.keys(GABARITS).forEach((niveau) => {
-    GABARITS[niveau].notions.forEach((n) => {
-      if (n.domaine === domaine) {
-        index.push({ niveau, notionId: n.id, notionTitre: n.titre, periode: n.periode });
-      }
-    });
-  });
-  // Tri par niveau pour lire la progression spiralaire dans l'ordre 6e -> 3e
-  const ordreNiveaux = ["6e", "5e", "4e", "3e"];
-  index.sort((a, b) => ordreNiveaux.indexOf(a.niveau) - ordreNiveaux.indexOf(b.niveau));
-  return index;
-}
-
-function buildDomaineSelect() {
-  const select = el("domaine-select");
-  select.innerHTML = "";
-  buildDomaineListeUnique().forEach((d) => {
-    const opt = document.createElement("option");
-    opt.value = d;
-    opt.textContent = d;
-    select.appendChild(opt);
-  });
-  onDomaineChange();
-}
-
-function onDomaineChange() {
-  const domaine = el("domaine-select").value;
-  const select = el("domaine-notion-recherche");
-  select.innerHTML = "";
-  buildDomaineIndex(domaine).forEach((entry, i) => {
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = `${entry.niveau} — ${entry.notionTitre} (${entry.periode})`;
-    select.appendChild(opt);
-  });
-}
-
-function onDomaineNotionChange() {
-  const domaine = el("domaine-select").value;
-  const index = buildDomaineIndex(domaine);
-  const i = parseInt(el("domaine-notion-recherche").value, 10);
-  const entry = index[i];
-  if (!entry) return;
-  switchNiveauEtNotion(entry.niveau, entry.notionId);
-}
-
-// Resynchronise le sélecteur de niveau (et tout ce qui en dépend) avant de fixer la notion,
-// pour garantir que reference_programme / attendus / vocabulaire restent ceux du bon cycle.
-function switchNiveauEtNotion(niveau, notionId) {
-  if (el("niveau").value !== niveau) {
-    el("niveau").value = niveau;
-    onNiveauChange();
-  }
-  el("notion").value = notionId;
   onNotionChange();
 }
 
@@ -333,30 +133,12 @@ function onGenerate(e) {
   state.problematique = problematiqueChoisie;
 
   state.vocab = initVocabFromNotion(notion, nbSeances);
-  state.oeuvres = notion.oeuvres_suggerees.map((o) => ({ titre: o.titre, auteur: o.auteur, note: o.note || "", lienAnalyse: o.lien_analyse || "" }));
-
-  // Si l'entrée s'est faite par œuvre principale, elle est replacée en tête de liste
-  // (le modèle de données ne distingue pas "principale" de "satellite" : la position
-  // dans la liste joue ce rôle sur la fiche de cours).
-  if (state.entreePar === "oeuvre" && state._oeuvrePrincipaleChoisie) {
-    const cible = state._oeuvrePrincipaleChoisie.titre;
-    state.oeuvres.sort((a, b) => (a.titre === cible ? -1 : b.titre === cible ? 1 : 0));
-  }
-
-  // La compétence prioritaire n'est renseignée que si l'entrée s'est faite par compétence ;
-  // sinon on l'efface pour ne pas afficher un choix qui ne correspond plus au contexte.
-  if (state.entreePar !== "competence") {
-    state.competencePrioritaire = "";
-  }
-
-  state.ressources = [];
-  state.illustrationUrl = el("illustration-url").value.trim();
+  state.oeuvres = notion.oeuvres_suggerees.map((o) => ({ titre: o.titre, auteur: o.auteur, note: o.note || "" }));
 
   rebuildSeances();
   renderSequence();
   renderVocabEditor();
   renderOeuvresEditor();
-  renderRessourcesEditor();
   showStep(2);
 }
 
@@ -400,7 +182,7 @@ function onVocabEditorClick(e) {
 }
 
 function onVocabEditorInput(e) {
-  const row = e.target.closest("tr");
+  const row = e.target.closest(".edit-row");
   if (!row) return;
   const idx = parseInt(row.dataset.index, 10);
   if (Number.isNaN(idx) || !state.vocab[idx]) return;
@@ -418,61 +200,45 @@ function renderVocabEditor() {
   const nb = state.nbSeances;
   const options = Array.from({ length: nb }, (_, i) => i + 1);
   el("vocab-editor").innerHTML = `
-    <table class="editor-table">
-      <thead><tr><th>Mot</th><th>Définition proposée</th><th>Séance</th><th></th></tr></thead>
-      <tbody>
-        ${state.vocab.map((v, i) => `
-          <tr data-index="${i}">
-            <td><input type="text" data-field="mot" value="${escapeAttr(v.mot)}" placeholder="ex. timbre"></td>
-            <td><input type="text" data-field="definition" value="${escapeAttr(v.definition)}" placeholder="ex. couleur sonore propre à une voix ou un instrument"></td>
-            <td>
-              <select data-field="seance">
-                ${options.map((n) => `<option value="${n}" ${v.seance === n ? "selected" : ""}>Séance ${n}</option>`).join("")}
-              </select>
-            </td>
-            <td><button type="button" class="ghost small" data-action="remove-vocab" data-index="${i}">Retirer</button></td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
+    <div class="edit-list" style="margin-top:.8rem;">
+      ${state.vocab.map((v, i) => `
+        <div class="edit-row" data-index="${i}">
+          <input type="text" data-field="mot" aria-label="Mot" value="${escapeAttr(v.mot)}" placeholder="Mot">
+          <input type="text" data-field="definition" aria-label="Définition" value="${escapeAttr(v.definition)}" placeholder="Définition (facultatif)">
+          <select data-field="seance" aria-label="Séance">
+            ${options.map((n) => `<option value="${n}" ${v.seance === n ? "selected" : ""}>Séance ${n}</option>`).join("")}
+          </select>
+          <button type="button" class="ghost small" data-action="remove-vocab" data-index="${i}">Retirer</button>
+        </div>
+      `).join("")}
+    </div>
   `;
 }
 
 // --- Édition des œuvres / supports -----------------------------------------
 
 function addOeuvreRow() {
-  state.oeuvres.push({ titre: "", auteur: "", note: "", lienAnalyse: "" });
+  state.oeuvres.push({ titre: "", auteur: "", note: "" });
   renderOeuvresEditor();
 }
 
 function onOeuvresEditorClick(e) {
-  const removeBtn = e.target.closest("[data-action='remove-oeuvre']");
-  if (removeBtn) {
-    const idx = parseInt(removeBtn.dataset.index, 10);
-    state.oeuvres.splice(idx, 1);
-    renderOeuvresEditor();
-    rebuildSeances();
-    renderSeancesTable();
-    return;
-  }
-  const searchBtn = e.target.closest("[data-action='search-analyse']");
-  if (searchBtn) {
-    const idx = parseInt(searchBtn.dataset.index, 10);
-    const o = state.oeuvres[idx];
-    if (!o) return;
-    const q = [o.titre, o.auteur, "analyse musicale"].filter((x) => x && x.trim() !== "").join(" ");
-    if (q.trim() === "analyse musicale") return; // rien de renseigné : inutile de lancer la recherche
-    window.open("https://search.brave.com/search?q=" + encodeURIComponent(q), "_blank", "noopener");
-  }
+  const btn = e.target.closest("[data-action='remove-oeuvre']");
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.index, 10);
+  state.oeuvres.splice(idx, 1);
+  renderOeuvresEditor();
+  rebuildSeances();
+  renderSeancesTable();
 }
 
 function onOeuvresEditorInput(e) {
-  const row = e.target.closest("tr");
+  const row = e.target.closest(".edit-row");
   if (!row) return;
   const idx = parseInt(row.dataset.index, 10);
   if (Number.isNaN(idx) || !state.oeuvres[idx]) return;
   const field = e.target.dataset.field;
-  if (["titre", "auteur", "note", "lienAnalyse"].includes(field)) {
+  if (["titre", "auteur", "note"].includes(field)) {
     state.oeuvres[idx][field] = e.target.value;
   }
   rebuildSeances();
@@ -481,90 +247,21 @@ function onOeuvresEditorInput(e) {
 
 function renderOeuvresEditor() {
   el("oeuvres-editor").innerHTML = `
-    <table class="editor-table">
-      <thead><tr><th>Titre</th><th>Auteur / interprète</th><th>Note</th><th>Lien d'analyse</th><th></th><th></th></tr></thead>
-      <tbody>
-        ${state.oeuvres.map((o, i) => `
-          <tr data-index="${i}">
-            <td><input type="text" data-field="titre" value="${escapeAttr(o.titre)}" placeholder="ex. Boléro"></td>
-            <td><input type="text" data-field="auteur" value="${escapeAttr(o.auteur)}" placeholder="ex. Maurice Ravel"></td>
-            <td><input type="text" data-field="note" value="${escapeAttr(o.note)}" placeholder="ex. ostinato rythmique"></td>
-            <td><input type="text" data-field="lienAnalyse" value="${escapeAttr(o.lienAnalyse)}" placeholder="https://... (facultatif)"></td>
-            <td><button type="button" class="ghost small" data-action="search-analyse" data-index="${i}" title="Chercher une analyse existante dans un nouvel onglet">🔍 Chercher</button></td>
-            <td><button type="button" class="ghost small" data-action="remove-oeuvre" data-index="${i}">Retirer</button></td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
+    <div class="edit-list" style="margin-top:.8rem;">
+      ${state.oeuvres.map((o, i) => `
+        <div class="edit-row oeuvre" data-index="${i}">
+          <input type="text" data-field="titre" aria-label="Titre" value="${escapeAttr(o.titre)}" placeholder="Titre">
+          <input type="text" data-field="auteur" aria-label="Auteur" value="${escapeAttr(o.auteur)}" placeholder="Auteur / interprète">
+          <input type="text" data-field="note" aria-label="Note" value="${escapeAttr(o.note)}" placeholder="Note (facultatif)">
+          <button type="button" class="ghost small" data-action="remove-oeuvre" data-index="${i}">Retirer</button>
+        </div>
+      `).join("")}
+    </div>
   `;
 }
 
 function escapeAttr(str) {
   return String(str || "").replace(/"/g, "&quot;");
-}
-
-// --- Édition des ressources numériques (QR codes) --------------------------
-
-function addRessourceRow() {
-  state.ressources.push({ label: "", url: "", seance: 1 });
-  renderRessourcesEditor();
-}
-
-function onRessourcesEditorClick(e) {
-  const btn = e.target.closest("[data-action='remove-ressource']");
-  if (!btn) return;
-  const idx = parseInt(btn.dataset.index, 10);
-  state.ressources.splice(idx, 1);
-  renderRessourcesEditor();
-}
-
-function onRessourcesEditorInput(e) {
-  const row = e.target.closest("tr");
-  if (!row) return;
-  const idx = parseInt(row.dataset.index, 10);
-  if (Number.isNaN(idx) || !state.ressources[idx]) return;
-  const field = e.target.dataset.field;
-  if (field === "seance") {
-    state.ressources[idx].seance = parseInt(e.target.value, 10);
-  } else if (field === "label" || field === "url") {
-    state.ressources[idx][field] = e.target.value;
-  }
-}
-
-function renderRessourcesEditor() {
-  const nb = state.nbSeances;
-  const options = Array.from({ length: nb }, (_, i) => i + 1);
-  el("ressources-editor").innerHTML = `
-    <table class="editor-table">
-      <thead><tr><th>Libellé</th><th>URL</th><th>Séance</th><th></th></tr></thead>
-      <tbody>
-        ${state.ressources.map((r, i) => `
-          <tr data-index="${i}">
-            <td><input type="text" data-field="label" value="${escapeAttr(r.label)}" placeholder="ex. Vidéo Dies Irae"></td>
-            <td><input type="text" data-field="url" value="${escapeAttr(r.url)}" placeholder="https://..."></td>
-            <td>
-              <select data-field="seance">
-                ${options.map((n) => `<option value="${n}" ${r.seance === n ? "selected" : ""}>Séance ${n}</option>`).join("")}
-              </select>
-            </td>
-            <td><button type="button" class="ghost small" data-action="remove-ressource" data-index="${i}">Retirer</button></td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-function qrSvgFor(url) {
-  if (!url) return "";
-  try {
-    const qr = qrcode(0, "M");
-    qr.addData(url);
-    qr.make();
-    return qr.createSvgTag({ cellSize: 4, margin: 1, scalable: true });
-  } catch (e) {
-    return "";
-  }
 }
 
 // --- Construction du scénario de séances ------------------------------------
@@ -574,7 +271,6 @@ function rebuildSeances() {
   state.seances = trame.map((s, i) => {
     const numero = i + 1;
     const vocabSeance = state.vocab.filter((v) => v.seance === numero && v.mot.trim() !== "");
-    const ressourcesSeance = state.ressources.filter((r) => r.seance === numero && r.label.trim() !== "" && r.url.trim() !== "");
     return {
       numero,
       titre: s.titre,
@@ -584,7 +280,6 @@ function rebuildSeances() {
       support: supportPourType(s.type),
       traceEcrite: traceEcritePourType(s.type, vocabSeance),
       vocabSeance,
-      ressourcesSeance,
     };
   });
 }
@@ -658,25 +353,38 @@ function renderSequence() {
   el("seq-etablissement").textContent = [state.etablissement, state.classe].filter(Boolean).join(" · ") || "—";
   el("problematique-live").value = state.problematique;
   el("seq-reference").innerHTML = `<div class="ref-box">${g.reference_programme}</div>`;
-  el("seq-competences").innerHTML = g.competences.map((c) => {
-    const prioritaire = state.competencePrioritaire && c === state.competencePrioritaire;
-    return `<li${prioritaire ? ' style="font-weight:700;"' : ''}>${c}${prioritaire ? ' <span class="hint">— entrée choisie</span>' : ''}</li>`;
-  }).join("");
+  el("seq-competences").innerHTML = g.competences.map((c) => `<li>${c}</li>`).join("");
   el("seq-attendus").innerHTML = state.notion.attendus.map((a) => `<li>${a}</li>`).join("");
   renderSeancesTable();
 }
 
+const TYPE_META = {
+  decouverte:        { icone: "🔎", label: "Découverte" },
+  ecoute:            { icone: "🎧", label: "Écoute" },
+  approfondissement: { icone: "🧩", label: "Approfondissement" },
+  pratique:          { icone: "🎤", label: "Pratique" },
+  bilan:             { icone: "✅", label: "Bilan" },
+};
+
 function renderSeancesTable() {
-  const rows = state.seances.map((s) => `
-    <tr>
-      <td><strong>Séance ${s.numero}</strong><br>${s.titre}</td>
-      <td>${s.objectif}</td>
-      <td>${s.deroule}</td>
-      <td>${s.support}</td>
-      <td>${s.traceEcrite}</td>
-    </tr>
-  `).join("");
-  el("seq-seances-body").innerHTML = rows;
+  el("seq-seances-body").innerHTML = state.seances.map((s) => {
+    const m = TYPE_META[s.type] || { icone: "🎵", label: "" };
+    return `
+    <article class="seance ${s.type}">
+      <div class="num"><span>Séance</span><b>${s.numero}</b></div>
+      <div class="body">
+        <h4>${m.icone} ${s.titre} <span class="tag">${m.label}</span></h4>
+        <dl>
+          <div><dt>Objectif</dt><dd>${s.objectif}</dd></div>
+          <div><dt>Déroulé</dt><dd>${s.deroule}</dd></div>
+          <div class="grid2">
+            <div class="box"><dt>Support</dt><dd>${s.support}</dd></div>
+            <div class="box"><dt>Trace écrite</dt><dd>${s.traceEcrite}</dd></div>
+          </div>
+        </dl>
+      </div>
+    </article>`;
+  }).join("");
 }
 
 // --- Rendu écran 3 : fiches ---------------------------------------------------
@@ -686,8 +394,6 @@ function renderFiches() {
   renderFicheEleve();
   renderFicheProf();
   renderFicheTrace();
-  renderFicheCours();
-  renderFicheMindmap();
   switchFiche("eleve");
 }
 
@@ -705,25 +411,6 @@ function renderFicheEleve() {
     <tr><td style="width:35%;">${v.mot} <span class="hint">(séance ${v.seance})</span></td><td><div class="blank-lines"></div></td></tr>
   `).join("");
 
-  const toutesRessources = s.seances.flatMap((se) => se.ressourcesSeance.map((r) => ({ ...r, seanceNum: se.numero })));
-  const ressourcesBlock = toutesRessources.length ? `
-    <h4>Ressources numériques</h4>
-    <div class="qr-grid">
-      ${toutesRessources.map((r) => `
-        <div class="qr-item">
-          <div class="qr-code">${qrSvgFor(r.url)}</div>
-          <div class="qr-label">${r.label}<br><span class="hint">séance ${r.seanceNum}</span></div>
-        </div>
-      `).join("")}
-    </div>
-  ` : "";
-
-  const illustrationBlock = s.illustrationUrl ? `
-    <img src="${escapeAttr(s.illustrationUrl)}" alt="" class="fiche-illustration">
-  ` : "";
-
-  const checklistItems = s.notion.attendus.map((a) => `<li><span class="checkbox"></span>${a}</li>`).join("");
-
   el("fiche-eleve").innerHTML = `
     <div class="fiche-header">
       <div>
@@ -732,7 +419,6 @@ function renderFicheEleve() {
       </div>
       <div class="type-fiche">Fiche élève</div>
     </div>
-    ${illustrationBlock}
     <div class="identite-eleve">
       <div><span>Nom</span><div class="blank-line"></div></div>
       <div><span>Prénom</span><div class="blank-line"></div></div>
@@ -752,14 +438,9 @@ function renderFicheEleve() {
       <tbody>${seancesRows}</tbody>
     </table>
 
-    ${ressourcesBlock}
-
     <h4>Bilan de séquence</h4>
     <p>Ce que je retiens :</p>
     <div class="blank-lines"></div><div class="blank-lines"></div><div class="blank-lines"></div>
-
-    <h4>En vue de l'évaluation, je sais</h4>
-    <ul class="checklist">${checklistItems}</ul>
   `;
 }
 
@@ -787,20 +468,8 @@ function renderFicheProf() {
   `).join("");
 
   const oeuvresList = s.oeuvres.filter((o) => o.titre.trim() !== "").map((o) =>
-    `<li>${o.titre}${o.auteur ? " — " + o.auteur : ""}${o.note ? ` <em>(${o.note})</em>` : ""}${o.lienAnalyse ? ` — <a href="${escapeAttr(o.lienAnalyse)}" target="_blank" rel="noopener">analyse</a>` : ""}</li>`
+    `<li>${o.titre}${o.auteur ? " — " + o.auteur : ""}${o.note ? ` <em>(${o.note})</em>` : ""}</li>`
   ).join("");
-
-  const toutesRessources = s.seances.flatMap((se) => se.ressourcesSeance.map((r) => ({ ...r, seanceNum: se.numero })));
-  const ressourcesRows = toutesRessources.map((r) => `
-    <tr><td>${r.seanceNum}</td><td>${r.label}</td><td>${r.url}</td></tr>
-  `).join("");
-  const ressourcesBlockProf = toutesRessources.length ? `
-    <h4>Ressources numériques (QR codes générés sur la fiche élève)</h4>
-    <table>
-      <thead><tr><th>Séance</th><th>Libellé</th><th>URL</th></tr></thead>
-      <tbody>${ressourcesRows}</tbody>
-    </table>
-  ` : "";
 
   el("fiche-prof").innerHTML = `
     <div class="fiche-header">
@@ -832,8 +501,6 @@ function renderFicheProf() {
     <h4>Œuvres / supports retenus</h4>
     <ul>${oeuvresList || "<li>Aucune œuvre renseignée</li>"}</ul>
     <p class="hint">⚠ Liste telle que vous l'avez éditée — vérifiez-la avant diffusion.</p>
-
-    ${ressourcesBlockProf}
 
     <h4>Scénario détaillé des séances</h4>
     <table>
@@ -893,137 +560,12 @@ function renderFicheTrace() {
   `;
 }
 
-function renderFicheCours() {
-  const s = state;
-  const g = GABARITS[s.niveau];
-
-  const oeuvresRows = s.oeuvres.filter((o) => o.titre.trim() !== "").map((o) => `
-    <tr>
-      <td style="width:32%;">${o.titre}</td>
-      <td style="width:28%;">${o.auteur || "—"}</td>
-      <td><div class="blank-lines"></div></td>
-    </tr>
-  `).join("");
-
-  const vocabItems = s.vocab.filter((v) => v.mot.trim() !== "");
-  const vocabRows = vocabItems.map((v) => `
-    <tr>
-      <td>${v.definition || '<span class="hint">définition à compléter par l\u2019enseignant</span>'}</td>
-      <td style="width:26%;"><div class="blank-line"></div></td>
-    </tr>
-  `).join("");
-  const banqueMots = vocabItems.map((v) => v.mot).join(" · ");
-
-  const checklistItems = s.notion.attendus.map((a) => `<li><span class="checkbox"></span>${a}</li>`).join("");
-
-  el("fiche-cours").innerHTML = `
-    <div class="fiche-header">
-      <div>
-        <div class="titre-fiche">${s.notion.titre}</div>
-        <div class="hint">Classe de ${s.niveau} — ${g.cycle}${s.etablissement ? " — " + s.etablissement : ""}</div>
-      </div>
-      <div class="type-fiche">Fiche de cours</div>
-    </div>
-
-    <div class="ref-box">${g.reference_programme}<br><strong>Domaine :</strong> ${s.notion.domaine}</div>
-
-    <h4>Problématique</h4>
-    <p><em>${s.problematique}</em></p>
-
-    <h4>Œuvres étudiées</h4>
-    <table>
-      <thead><tr><th>Titre</th><th>Auteur / interprète</th><th>Ce que je retiens</th></tr></thead>
-      <tbody>${oeuvresRows || "<tr><td colspan='3'>Aucune œuvre renseignée pour le moment</td></tr>"}</tbody>
-    </table>
-
-    <h4>Vocabulaire — à compléter</h4>
-    <p class="hint">Retrouvez le mot correspondant à chaque définition à l'aide de la banque de mots.</p>
-    <table>
-      <thead><tr><th>Définition</th><th>Mot</th></tr></thead>
-      <tbody>${vocabRows || "<tr><td colspan='2'>Aucun mot renseigné pour le moment</td></tr>"}</tbody>
-    </table>
-    ${banqueMots ? `<p class="hint"><strong>Banque de mots :</strong> ${banqueMots}</p>` : ""}
-
-    <h4>Ce que je dois savoir</h4>
-    <ul class="checklist">${checklistItems}</ul>
-
-    <h4>Synthèse personnelle</h4>
-    <div class="blank-lines"></div><div class="blank-lines"></div><div class="blank-lines"></div>
-  `;
-}
-
-// Palette de teintes tirée des variables CSS existantes plutôt que de couleurs
-// vives importées, pour rester cohérent avec le système visuel de l'app.
-const MINDMAP_TINTS = ["#F5E9E1", "#E4EAF0", "#E8F0E7", "#EFEFEF", "#E3F3F3", "#FBF0DD"];
-
-function renderFicheMindmap() {
-  const s = state;
-
-  // Colonne gauche : une case par mot de vocabulaire réellement présent
-  // (state.vocab reflète les éventuelles modifications faites dans l'éditeur
-  // de vocabulaire, pas seulement la liste brute de la notion).
-  const vocabItems = s.vocab.filter((v) => v.mot.trim() !== "");
-  const vocabCards = vocabItems.map((v, i) => `
-    <div class="mindmap-card" style="background:${MINDMAP_TINTS[i % MINDMAP_TINTS.length]};">
-      <h5>${v.mot.charAt(0).toUpperCase()}${v.mot.slice(1)}</h5>
-      <p>${v.definition || '<span class="hint">définition à compléter</span>'}</p>
-    </div>
-  `).join("");
-
-  // Colonne droite : cases pédagogiques fixes (nombre constant, contenu variable).
-  const oeuvrePrincipale = s.oeuvres[0];
-  const oeuvresSatellites = s.oeuvres.slice(1).filter((o) => o.titre.trim() !== "");
-
-  const rightCards = [
-    { titre: "Problématique", contenu: `<p>${s.problematique || '<span class="hint">non renseignée</span>'}</p>` },
-    {
-      titre: "Œuvre principale",
-      contenu: (oeuvrePrincipale && oeuvrePrincipale.titre.trim() !== "")
-        ? `<p>${oeuvrePrincipale.titre}${oeuvrePrincipale.auteur ? " — " + oeuvrePrincipale.auteur : ""}</p>`
-        : '<p class="hint">Aucune œuvre principale renseignée</p>',
-    },
-    {
-      titre: "Œuvres satellites",
-      contenu: oeuvresSatellites.length
-        ? `<ul>${oeuvresSatellites.map((o) => `<li>${o.titre}${o.auteur ? " — " + o.auteur : ""}</li>`).join("")}</ul>`
-        : '<p class="hint">Aucune œuvre satellite renseignée</p>',
-    },
-    { titre: "Ce que je dois savoir faire", contenu: `<ul>${s.notion.attendus.map((a) => `<li>${a}</li>`).join("")}</ul>` },
-    { titre: "Synthèse personnelle", contenu: `<div class="blank-lines"></div><div class="blank-lines"></div>` },
-  ];
-  const rightCardsHtml = rightCards.map((c, i) => `
-    <div class="mindmap-card" style="background:${MINDMAP_TINTS[(i + 1) % MINDMAP_TINTS.length]};">
-      <h5>${c.titre}</h5>
-      ${c.contenu}
-    </div>
-  `).join("");
-
-  // Centre : illustration si renseignée, sinon repère de domaine — jamais une
-  // case vide, pour ne pas casser visuellement la grille.
-  const centre = s.illustrationUrl
-    ? `<img src="${s.illustrationUrl}" alt="Illustration — ${s.notion.titre}" style="max-width:100%; border-radius:8px;">`
-    : `<div class="hint">${s.notion.domaine}</div>`;
-
-  el("fiche-mindmap").innerHTML = `
-    <div class="mindmap-title">
-      ${s.notion.titre}
-      <div class="hint" style="font-family:var(--font-body); font-size:0.85rem; margin-top:0.2rem;">
-        Classe de ${s.niveau}${s.etablissement ? " — " + s.etablissement : ""}
-      </div>
-    </div>
-    <div class="mindmap-grid">
-      <div class="mindmap-col">${vocabCards || '<p class="hint">Aucun mot de vocabulaire renseigné</p>'}</div>
-      <div class="mindmap-center">${centre}</div>
-      <div class="mindmap-col">${rightCardsHtml}</div>
-    </div>
-  `;
-}
-
 function switchFiche(which) {
   document.querySelectorAll(".fiche").forEach((f) => f.classList.remove("active"));
   el(`fiche-${which}`).classList.add("active");
-  ["eleve", "prof", "trace", "cours", "mindmap"].forEach((k) => {
+  ["eleve", "prof", "trace"].forEach((k) => {
     el(`btn-fiche-${k}`).classList.toggle("secondary", k !== which);
+    el(`btn-fiche-${k}`).classList.toggle("tab-active", k === which);
   });
 }
 
@@ -1031,6 +573,7 @@ function showStep(n) {
   [1, 2, 3].forEach((i) => {
     el(`screen-${i}`).style.display = i === n ? "block" : "none";
     el(`step-${i}`).classList.toggle("active", i === n);
+    el(`step-${i}`).classList.toggle("done", i < n);
   });
   window.scrollTo(0, 0);
 }
